@@ -1,0 +1,11 @@
+@AsynchronousQueue_HostAddress = http://localhost:5207
+
+GET {{AsynchronousQueue_HostAddress}}/todos/
+Accept: application/json
+
+###
+
+GET {{AsynchronousQueue_HostAddress}}/todos/1
+Accept: application/json
+
+###
