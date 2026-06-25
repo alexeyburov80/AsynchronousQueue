@@ -1,6 +1,7 @@
 using AsynchronousQueue.Features.Simulation;
 using AsynchronousQueue.Infrastructure.Db;
 using AsynchronousQueue.Infrastructure.Messaging;
+using AsynchronousQueue.Infrastructure;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,6 +56,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
+builder.Services.AddHostedService<OutboxDispatcher>(); 
 // ── OpenAPI ───────────────────────────────────────────────────────────────────
 builder.Services.AddOpenApi();
 
