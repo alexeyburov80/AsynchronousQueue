@@ -1,7 +1,7 @@
 using AsynchronousQueue.Features.Simulation;
+using AsynchronousQueue.Infrastructure;
 using AsynchronousQueue.Infrastructure.Db;
 using AsynchronousQueue.Infrastructure.Messaging;
-using AsynchronousQueue.Infrastructure;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,7 +56,13 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-builder.Services.AddHostedService<OutboxDispatcher>(); 
+// ── Outbox Dispatcher ─────────────────────────────────────────────────────────
+builder.Services.AddHostedService<OutboxDispatcher>();
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+builder.Services.AddSingleton<SimulationStateService>();
+builder.Services.AddScoped<SimulationService>();
+
 // ── OpenAPI ───────────────────────────────────────────────────────────────────
 builder.Services.AddOpenApi();
 
@@ -74,7 +80,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
-// ── Processing settings API (live update) ────────────────────────────────────
+// ── Endpoints ─────────────────────────────────────────────────────────────────
+app.MapSimulationEndpoints();
+
 app.MapGet("/api/processing/settings", (ProcessingSettingsHolder holder) =>
     Results.Ok(holder.Current));
 
@@ -83,6 +91,15 @@ app.MapPatch("/api/processing/settings", (
     ProcessingSettingsHolder holder) =>
 {
     holder.Patch(patch);
+    return Results.Ok(holder.Current);
+});
+
+
+app.MapPut("/api/processing/settings", (
+    ProcessingSettings settings,
+    ProcessingSettingsHolder holder) =>
+{
+    holder.Update(settings);
     return Results.Ok(holder.Current);
 });
 

@@ -18,6 +18,7 @@ namespace AsynchronousQueue.Infrastructure.Messaging;
 public sealed class OrderConsumer(
     AppDbContext db,
     ProcessingSettingsHolder settingsHolder,
+    SimulationStateService simulationState,
     ILogger<OrderConsumer> logger
 ) : IConsumer<OrderCreatedEvent>
 {
@@ -67,11 +68,11 @@ public sealed class OrderConsumer(
 
             if (isBusiness)
             {
-                // Business error: помечаем Failed и выходим — retry не нужен
                 logger.LogWarning("Business error for order {OrderId}", evt.OrderId);
                 order.Status = OrderStatus.Failed;
                 order.ProcessedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(context.CancellationToken);
+                simulationState.RecordProcessed();
                 return;
             }
 
@@ -92,13 +93,14 @@ public sealed class OrderConsumer(
 
         await db.SaveChangesAsync(context.CancellationToken);
 
+        simulationState.RecordProcessed();
+
         logger.LogDebug("Order {OrderId} done in {DelayMs}ms (retries: {Retries})",
             evt.OrderId, delayMs, order.RetryCount);
     }
 
     /// <summary>
     /// Spike возникает периодически: каждые SpikeIntervalSeconds на SpikeDurationSeconds.
-    /// Например: каждые 30с — замедление на 5с.
     /// </summary>
     private static bool IsWithinSpike(ProcessingSettings cfg)
     {

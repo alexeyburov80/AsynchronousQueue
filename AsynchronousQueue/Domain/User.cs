@@ -7,4 +7,6 @@ public class User
     public string Name { get; set; } = string.Empty;
 
     public ICollection<Order> Orders { get; set; } = [];
+    
+    public DateTime CreatedAt { get; set; }
 }

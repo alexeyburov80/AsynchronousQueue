@@ -18,4 +18,6 @@ public class Order
     public DateTime? ProcessedAt { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public int RetryCount { get; set; }
+    public decimal Amount { get; set; }
+    public string Description { get; set; } =  string.Empty;
 }
