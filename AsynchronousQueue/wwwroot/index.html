@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Queue Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0f1117;
+            --surface:   #1a1d27;
+            --border:    #2a2d3a;
+            --text:      #e2e4ed;
+            --muted:     #6b7080;
+            --accent:    #4f8ef7;
+            --green:     #34d399;
+            --yellow:    #fbbf24;
+            --red:       #f87171;
+            --purple:    #a78bfa;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-sans: 'Inter', system-ui, sans-serif;
+            --radius:    8px;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        header {
+            padding: 20px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+
+        .badge {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--border);
+            color: var(--muted);
+        }
+
+        .badge.running {
+            background: rgba(79,142,247,0.15);
+            color: var(--accent);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 57px);
+        }
+
+        aside {
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+
+        .field label {
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .field label span { font-family: var(--font-mono); color: var(--text); }
+
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .toggle-row label { font-size: 12px; color: var(--muted); }
+
+        input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+        .radio-group { display: flex; gap: 8px; margin-bottom: 12px; }
+
+        .radio-group label {
+            flex: 1;
+            text-align: center;
+            padding: 6px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--muted);
+            transition: all 0.15s;
+        }
+
+        .radio-group input[type=radio] { display: none; }
+
+        .radio-group input[type=radio]:checked + label {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(79,142,247,0.08);
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .content { display: flex; flex-direction: column; overflow: hidden; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-card { padding: 20px 24px; border-right: 1px solid var(--border); }
+        .stat-card:last-child { border-right: none; }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-value.blue   { color: var(--accent); }
+        .stat-value.green  { color: var(--green); }
+        .stat-value.yellow { color: var(--yellow); }
+        .stat-value.red    { color: var(--red); }
+
+        .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mini-stat { padding: 12px 24px; border-right: 1px solid var(--border); }
+        .mini-stat:last-child { border-right: none; }
+
+        .mini-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+        .mini-value { font-family: var(--font-mono); font-size: 18px; font-weight: 600; margin-top: 2px; }
+        .mini-value.purple { color: var(--purple); }
+        .mini-value.red    { color: var(--red); }
+        .mini-value.muted  { color: var(--muted); }
+
+        .chart-area { flex: 1; padding: 24px; position: relative; min-height: 0; }
+        .chart-area canvas { width: 100% !important; height: 100% !important; }
+
+        hr { border: none; border-top: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Order Queue Monitor</h1>
+    <span class="badge" id="statusBadge">idle</span>
+</header>
+
+<main>
+    <aside>
+
+        <div>
+            <div class="section-title">Симуляция</div>
+
+            <div class="field">
+                <label>Пользователей <span id="usersVal">10</span></label>
+                <input type="range" id="users" min="1" max="100" value="10"
+                       oninput="usersVal.textContent=this.value">
+            </div>
+
+            <div class="field">
+                <label>Заказов на пользователя <span id="ordersVal">5</span></label>
+                <input type="range" id="orders" min="1" max="50" value="5"
+                       oninput="ordersVal.textContent=this.value">
+            </div>
+
+            <div class="field">
+                <label>Повторений <span id="repsVal">1</span></label>
+                <input type="range" id="reps" min="1" max="10" value="1"
+                       oninput="repsVal.textContent=this.value">
+            </div>
+
+            <button class="btn btn-primary" id="startBtn" onclick="startSimulation()">
+                ▶ Запустить
+            </button>
+        </div>
+
+        <hr>
+
+        <div>
+            <div class="section-title">Обработка — live</div>
+
+            <div class="field">
+                <label>Среднее время (мс) <span id="delayMeanVal">200</span></label>
+                <input type="range" id="delayMean" min="10" max="2000" value="200"
+                       oninput="delayMeanVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+
+            <div class="field">
+                <label>Разброс σ (мс) <span id="delayStdVal">100</span></label>
+                <input type="range" id="delayStd" min="0" max="1000" value="100"
+                       oninput="delayStdVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+
+            <div class="field">
+                <label>Ошибки % <span id="errorRateVal">5</span></label>
+                <input type="range" id="errorRate" min="0" max="50" value="5"
+                       oninput="errorRateVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+
+            <div class="section-title" style="margin-top:4px">Тип ошибок</div>
+            <div class="radio-group">
+                <input type="radio" name="errorMode" id="modeTransient" value="Transient">
+                <label for="modeTransient">Transient</label>
+
+                <input type="radio" name="errorMode" id="modeBusiness" value="Business">
+                <label for="modeBusiness">Business</label>
+
+                <input type="radio" name="errorMode" id="modeMixed" value="Mixed" checked>
+                <label for="modeMixed">Mixed</label>
+            </div>
+
+            <hr style="margin-bottom:12px">
+
+            <div class="section-title">Spike mode</div>
+
+            <div class="toggle-row">
+                <label>Включить spike</label>
+                <input type="checkbox" id="spikeEnabled" onchange="pushSettings()">
+            </div>
+
+            <div class="field">
+                <label>Интервал (с) <span id="spikeIntervalVal">30</span></label>
+                <input type="range" id="spikeInterval" min="5" max="120" value="30"
+                       oninput="spikeIntervalVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+
+            <div class="field">
+                <label>Длительность (с) <span id="spikeDurVal">5</span></label>
+                <input type="range" id="spikeDur" min="1" max="30" value="5"
+                       oninput="spikeDurVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+
+            <div class="field">
+                <label>Множитель задержки <span id="spikeMulVal">5</span>×</label>
+                <input type="range" id="spikeMul" min="2" max="20" value="5"
+                       oninput="spikeMulVal.textContent=this.value" onchange="pushSettings()">
+            </div>
+        </div>
+
+    </aside>
+
+    <div class="content">
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Всего заказов</div>
+                <div class="stat-value blue" id="sTotalOrders">0</div>
+                <div class="stat-sub">сгенерировано</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">В очереди</div>
+                <div class="stat-value yellow" id="sInQueue">0</div>
+                <div class="stat-sub">ожидают Consumer</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Обработано</div>
+                <div class="stat-value green" id="sProcessed">0</div>
+                <div class="stat-sub" id="sPerSec">0 / сек</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ошибки</div>
+                <div class="stat-value red" id="sFailed">0</div>
+                <div class="stat-sub">в DLQ</div>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="mini-stat">
+                <div class="mini-label">Опубликовано</div>
+                <div class="mini-value" id="sPublished">0</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-label">Обрабатывается</div>
+                <div class="mini-value" id="sProcessing">0</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-label">После retry</div>
+                <div class="mini-value purple" id="sRetried">0</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-label">Ожидают Outbox</div>
+                <div class="mini-value muted" id="sPending">0</div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-label">Завершено %</div>
+                <div class="mini-value" id="sPct">0%</div>
+            </div>
+        </div>
+
+        <div class="chart-area">
+            <canvas id="chart"></canvas>
+        </div>
+
+    </div>
+</main>
+<script>
+    const MAX_POINTS = 120;
+    const labels = [], dataInQueue = [], dataProcessed = [], dataFailed = [];
+
+    const chart = new Chart(document.getElementById('chart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'В очереди',
+                    data: dataInQueue,
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251,191,36,0.08)',
+                    fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+                },
+                {
+                    label: 'Обработано (накопл.)',
+                    data: dataProcessed,
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52,211,153,0.05)',
+                    fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+                },
+                {
+                    label: 'Ошибки (накопл.)',
+                    data: dataFailed,
+                    borderColor: '#f87171',
+                    backgroundColor: 'rgba(248,113,113,0.05)',
+                    fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#6b7080', font: { size: 11 }, boxWidth: 12 } },
+                tooltip: {
+                    backgroundColor: '#1a1d27',
+                    borderColor: '#2a2d3a',
+                    borderWidth: 1,
+                    titleColor: '#e2e4ed',
+                    bodyColor: '#6b7080',
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#6b7080', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: '#2a2d3a' } },
+                y: { ticks: { color: '#6b7080', font: { size: 10 } }, grid: { color: '#2a2d3a' }, beginAtZero: true }
+            }
+        }
+    });
+
+    function pushChartPoint(inQueue, processed, failed) {
+        const t = new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        labels.push(t); dataInQueue.push(inQueue); dataProcessed.push(processed); dataFailed.push(failed);
+        if (labels.length > MAX_POINTS) { labels.shift(); dataInQueue.shift(); dataProcessed.shift(); dataFailed.shift(); }
+        chart.update('none');
+    }
+
+    async function pollStats() {
+        try {
+            const s = await fetch('/api/simulation/stats').then(r => r.json());
+            const done = s.processed + s.retried + s.failed;
+            const pct  = s.totalOrders > 0 ? Math.round(done / s.totalOrders * 100) : 0;
+
+            document.getElementById('sTotalOrders').textContent = fmt(s.totalOrders);
+            document.getElementById('sInQueue').textContent     = fmt(s.inQueue);
+            document.getElementById('sProcessed').textContent   = fmt(s.processed + s.retried);
+            document.getElementById('sFailed').textContent      = fmt(s.failed);
+            document.getElementById('sPerSec').textContent      = `${s.processedPerSecond} / сек`;
+            document.getElementById('sPublished').textContent   = fmt(s.published);
+            document.getElementById('sProcessing').textContent  = fmt(s.processing);
+            document.getElementById('sRetried').textContent     = fmt(s.retried);
+            document.getElementById('sPending').textContent     = fmt(Math.max(0, s.totalOrders - s.published));
+            document.getElementById('sPct').textContent         = pct + '%';
+
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = s.isRunning ? 'running' : 'idle';
+            badge.className   = 'badge' + (s.isRunning ? ' running' : '');
+            document.getElementById('startBtn').disabled = s.isRunning;
+
+            pushChartPoint(s.inQueue, s.processed + s.retried, s.failed);
+        } catch(e) { console.warn('stats poll error', e); }
+    }
+
+    setInterval(pollStats, 1000);
+    pollStats();
+
+    async function loadSettings() {
+        try {
+            const s = await fetch('/api/processing/settings').then(r => r.json());
+            setSlider('delayMean',     'delayMeanVal',     s.delayMeanMs);
+            setSlider('delayStd',      'delayStdVal',      s.delayStdDevMs);
+            setSlider('errorRate',     'errorRateVal',     s.errorRatePercent);
+            setSlider('spikeInterval', 'spikeIntervalVal', s.spikeIntervalSeconds);
+            setSlider('spikeDur',      'spikeDurVal',      s.spikeDurationSeconds);
+            setSlider('spikeMul',      'spikeMulVal',      s.spikeMultiplier);
+            document.getElementById('spikeEnabled').checked = s.spikeModeEnabled;
+            const modeMap = { Transient: 'modeTransient', Business: 'modeBusiness', Mixed: 'modeMixed' };
+            const el = document.getElementById(modeMap[s.errorMode] || 'modeMixed');
+            if (el) el.checked = true;
+        } catch(e) { console.warn('settings load error', e); }
+    }
+
+    async function loadConfig() {
+        try {
+            const c = await fetch('/api/simulation/config').then(r => r.json());
+            document.getElementById('users').max  = c.maxUsers;
+            document.getElementById('orders').max = c.maxOrdersPerUser;
+            document.getElementById('reps').max   = c.maxRepetitions;
+        } catch(e) {}
+    }
+
+    async function pushSettings() {
+        const errorMode = document.querySelector('input[name=errorMode]:checked')?.value ?? 'Mixed';
+        await fetch('/api/processing/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                delayMeanMs:          +document.getElementById('delayMean').value,
+                delayStdDevMs:        +document.getElementById('delayStd').value,
+                errorRatePercent:     +document.getElementById('errorRate').value,
+                errorMode,
+                spikeModeEnabled:     document.getElementById('spikeEnabled').checked,
+                spikeIntervalSeconds: +document.getElementById('spikeInterval').value,
+                spikeDurationSeconds: +document.getElementById('spikeDur').value,
+                spikeMultiplier:      +document.getElementById('spikeMul').value,
+            }),
+        }).catch(e => console.warn('settings push error', e));
+    }
+
+    document.querySelectorAll('input[name=errorMode]').forEach(r =>
+        r.addEventListener('change', pushSettings));
+
+    async function startSimulation() {
+        document.getElementById('startBtn').disabled = true;
+        await fetch('/api/simulation/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                users:         +document.getElementById('users').value,
+                ordersPerUser: +document.getElementById('orders').value,
+                repetitions:   +document.getElementById('reps').value,
+            }),
+        }).catch(e => {
+            console.warn('start error', e);
+            document.getElementById('startBtn').disabled = false;
+        });
+    }
+
+    function setSlider(id, valId, value) {
+        const el = document.getElementById(id);
+        if (el) { el.value = value; document.getElementById(valId).textContent = value; }
+    }
+
+    function fmt(n) {
+        return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    }
+
+    loadConfig();
+    loadSettings();
+</script>
+</body>
+</html>
