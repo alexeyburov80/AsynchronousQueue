@@ -1,6 +1,6 @@
 # AsynchronousQueue — Демонстрация асинхронной обработки заказов
 
-Учебный проект, демонстрирующий профессиональные паттерны асинхронной обработки на .NET 10:
+Демонстрациозный проект, демонстрирующий профессиональные паттерны асинхронной обработки на .NET 10:
 **Transactional Outbox**, **RabbitMQ** через **MassTransit**, **Retry Policy**, **Dead Letter Queue** и живую статистику через Web UI.
 
 ---
@@ -98,7 +98,7 @@
 ```bash
 git clone <repo>
 cd AsynchronousQueue
-docker-compose up --build
+docker compose up --build
 ```
 
 Сервисы будут доступны:
@@ -120,8 +120,8 @@ docker-compose up --build
 ### Остановка
 
 ```bash
-docker-compose down        # остановить, сохранить данные
-docker-compose down -v     # остановить и удалить все данные (чистый старт)
+docker compose down        # остановить, сохранить данные
+docker compose down -v     # остановить и удалить все данные (чистый старт)
 ```
 
 ---
@@ -451,16 +451,16 @@ dotnet run
 
 ```bash
 # Пересобрать и запустить
-docker-compose up --build
+docker compose up --build
 
 # Сбросить все данные (удалить volumes)
-docker-compose down -v
+docker compose down -v
 
 # Логи приложения
-docker-compose logs -f app
+docker compose logs -f app
 
 # Логи RabbitMQ
-docker-compose logs -f rabbitmq
+docker compose logs -f rabbitmq
 
 # Зайти в контейнер
 docker exec -it asynchronousqueue-app-1 sh
