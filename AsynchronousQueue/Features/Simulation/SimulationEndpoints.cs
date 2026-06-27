@@ -1,3 +1,4 @@
+using AsynchronousQueue.Infrastructure.Db;
 using Microsoft.Extensions.Options;
 
 namespace AsynchronousQueue.Features.Simulation;
@@ -37,6 +38,17 @@ public static class SimulationEndpoints
                 settings.Value.ConcurrentConsumers
             }));
 
+        group.MapPost("/reset", async (
+            AppDbContext db,
+            SimulationStateService state,
+            CancellationToken ct) =>
+        {
+            await db.Database.EnsureDeletedAsync(ct);
+            await db.Database.EnsureCreatedAsync(ct);
+            state.MarkIdle();
+            return Results.Ok(new { message = "Database reset" });
+        });
+        
         return app;
     }
 }

@@ -4,6 +4,7 @@ using AsynchronousQueue.Infrastructure.Db;
 using AsynchronousQueue.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,9 +76,8 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
 }
 
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
-
+app.MapOpenApi();
+app.MapScalarApiReference();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

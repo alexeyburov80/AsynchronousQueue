@@ -228,8 +228,11 @@
                        oninput="repsVal.textContent=this.value">
             </div>
 
-            <button class="btn btn-primary" id="startBtn" onclick="startSimulation()">
+            <button class="btn field btn-primary" id="startBtn" onclick="startSimulation()">
                 ▶ Запустить
+            </button>
+            <button class="btn field btn-ghost" onclick="resetDb()">
+                ↺ Сбросить БД
             </button>
         </div>
 
@@ -511,6 +514,22 @@
 
     function fmt(n) {
         return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    }
+
+    async function resetDb() {
+        if (!confirm('Удалить все данные и сбросить статистику?')) return;
+
+        // Очищаем график
+        labels.length = 0;
+        dataInQueue.length = 0;
+        dataProcessed.length = 0;
+        dataFailed.length = 0;
+        chart.update('none');
+
+        await fetch('/api/simulation/reset', { method: 'POST' })
+            .catch(e => console.warn('reset error', e));
+
+        pollStats();
     }
 
     loadConfig();
